@@ -92,9 +92,23 @@ Capture 버튼 아래의 **Add Hotkey**를 눌러 단축키를 정합니다(처�
 - Open Last Capture in Editor
 - Hotkey..., Settings...
 - Always on Top: WinCap 창을 항상 위에 표시
-- About WinCap, Exit
+- About WinCap
+- Check for Updates...: GitHub의 최신 릴리스를 확인하고 내려받아 설치 (아래 "업데이트" 참고)
+- Exit
 
 모든 설정은 `%APPDATA%\WinCap\settings.json`에 자동 저장되고, 다음 실행 때 그대로 복원됩니다.
+
+## 업데이트
+
+⋯ 메뉴 › **Check for Updates...** 를 누르면 [GitHub Releases](https://github.com/stjeong/WinCap/releases)의 최신 버전을 확인합니다. 새 버전이 있으면 릴리스 노트를 보여 주고, **Download and Install**을 누르면 설치 방식에 맞게 업데이트합니다.
+
+| 설치 방식 | 업데이트 동작 |
+|---|---|
+| zip (포터블) | 새 zip을 내려받아 실행 중인 `WinCap.exe`를 교체한 뒤 WinCap을 다시 시작합니다. 이전 exe는 `WinCap.exe.old`로 잠시 남았다가 다음 실행 때 지워집니다. exe가 쓰기 권한이 없는 폴더(예: Program Files)에 있으면 교체할 수 없으므로, 내려받은 파일 위치를 알려 줍니다. |
+| MSIX | 새 `.msix`를 내려받아 Windows 앱 설치 관리자로 열고 WinCap을 종료합니다. 릴리스가 자체 서명 인증서로 서명되어 있고 그 인증서를 아직 신뢰하지 않았다면, 인증서를 이 PC의 Trusted People 저장소에 추가할지 묻습니다 (관리자 권한 필요). |
+| 개발 빌드 (Visual Studio 등에서 실행) | 스스로 업데이트하지 않고 릴리스 페이지만 엽니다. |
+
+내려받은 파일은 `%TEMP%\WinCap-update\<태그>\`에 저장됩니다.
 
 ## 요구 사항
 
@@ -168,8 +182,9 @@ src/WinCap/
                              테두리 효과, 창 열거, 투명 여백 제거
   Controls/                  Theme(색상), SegmentedControl, AccentButton, ToggleSwitch,
                              다크 메뉴 렌더러
-  Dialogs/                   Settings, Border, Time Delay, Hotkey 대화상자
+  Dialogs/                   Settings, Border, Time Delay, Hotkey, Update 대화상자
   Hotkeys/                   단축키 입력과 표시
   Native/                    Win32 P/Invoke
   Settings/                  AppSettings(JSON 저장), 시작 프로그램 등록
+  Updates/                   GitHub Releases 확인·다운로드, 포터블/MSIX 업데이트 설치
 ```

@@ -41,6 +41,7 @@ namespace WinCap
             mnuViewAlwaysOnTop = new ToolStripMenuItem();
             mnuSep2 = new ToolStripSeparator();
             mnuHelpAbout = new ToolStripMenuItem();
+            mnuHelpUpdate = new ToolStripMenuItem();
             mnuFileExit = new ToolStripMenuItem();
             pnlBody = new Panel();
             lblAreaCaption = new Label();
@@ -153,7 +154,7 @@ namespace WinCap
             // mnuMain
             //
             mnuMain.Font = new Font("Segoe UI", 9.75F);
-            mnuMain.Items.AddRange(new ToolStripItem[] { mnuFileCapture, mnuFileOpenFolder, mnuEditCopyLast, mnuEditOpenLast, mnuSep1, mnuEditHotkey, mnuFileSettings, mnuViewAlwaysOnTop, mnuSep2, mnuHelpAbout, mnuFileExit });
+            mnuMain.Items.AddRange(new ToolStripItem[] { mnuFileCapture, mnuFileOpenFolder, mnuEditCopyLast, mnuEditOpenLast, mnuSep1, mnuEditHotkey, mnuFileSettings, mnuViewAlwaysOnTop, mnuSep2, mnuHelpAbout, mnuHelpUpdate, mnuFileExit });
             mnuMain.Name = "mnuMain";
             mnuMain.ShowImageMargin = false;
             mnuMain.ShowCheckMargin = true;
@@ -187,6 +188,9 @@ namespace WinCap
             mnuHelpAbout.Name = "mnuHelpAbout";
             mnuHelpAbout.Text = "A&bout WinCap";
             mnuHelpAbout.Click += mnuHelpAbout_Click;
+            mnuHelpUpdate.Name = "mnuHelpUpdate";
+            mnuHelpUpdate.Text = "Check for &Updates...";
+            mnuHelpUpdate.Click += mnuHelpUpdate_Click;
             mnuFileExit.Name = "mnuFileExit";
             mnuFileExit.Text = "E&xit";
             mnuFileExit.Click += mnuFileExit_Click;
@@ -509,6 +513,7 @@ namespace WinCap
         private ToolStripMenuItem mnuViewAlwaysOnTop;
         private ToolStripSeparator mnuSep2;
         private ToolStripMenuItem mnuHelpAbout;
+        private ToolStripMenuItem mnuHelpUpdate;
         private ToolStripMenuItem mnuFileExit;
         private Panel pnlBody;
         private Label lblAreaCaption;

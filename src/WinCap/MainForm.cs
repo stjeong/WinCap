@@ -6,6 +6,7 @@ using WinCap.Dialogs;
 using WinCap.Hotkeys;
 using WinCap.Native;
 using WinCap.Settings;
+using WinCap.Updates;
 
 namespace WinCap;
 
@@ -19,7 +20,7 @@ public partial class MainForm : Form
     private bool _hotkeyRegistered;
     private string? _lastFilePath;
 
-    public MainForm()
+    public MainForm(bool afterUpdate = false)
     {
         InitializeComponent();
 
@@ -43,6 +44,7 @@ public partial class MainForm : Form
         toolTip.SetToolTip(lblStatus, "Double-click to open the capture folder");
 
         ApplySettingsToUi();
+        if (afterUpdate) SetStatus($"Updated to WinCap {AppVersion.Current}.");
     }
 
     // ------------------------------------------------------------------
@@ -621,10 +623,108 @@ public partial class MainForm : Form
 
     private void mnuHelpAbout_Click(object? sender, EventArgs e)
     {
-        string version = Application.ProductVersion;
+        Version version = AppVersion.Current;
         MessageBox.Show(this,
             $"WinCap {version}\n\nScreen capture tool (.NET 9 / Windows Forms).\n\n" +
             $"Settings: {AppSettings.SettingsFile}",
             "About WinCap", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    // ------------------------------------------------------------------
+    //  Update from GitHub Releases
+    // ------------------------------------------------------------------
+
+    private bool _checkingUpdate;
+
+    private async void mnuHelpUpdate_Click(object? sender, EventArgs e)
+    {
+        if (_checkingUpdate) return;
+        _checkingUpdate = true;
+        mnuHelpUpdate.Enabled = false;
+        SetStatus("Checking for updates...");
+        try
+        {
+            ReleaseInfo latest;
+            try
+            {
+                latest = await GitHubReleases.GetLatestAsync(CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Update check failed.");
+                MessageBox.Show(this, $"Could not check for updates:\n{ex.Message}", "Check for Updates",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            if (latest.Version <= AppVersion.Current)
+            {
+                SetStatus($"WinCap {AppVersion.Current} is up to date.");
+                MessageBox.Show(this, $"You have the latest version (WinCap {AppVersion.Current}).", "Check for Updates",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            SetStatus($"WinCap {latest.Version} is available.");
+            InstallKind kind = UpdateInstaller.DetectInstallKind();
+            using var dlg = new UpdateDialog(latest, kind);
+            if (dlg.ShowDialog(this) != DialogResult.OK || dlg.PackagePath == null) return;
+
+            if (InstallUpdate(kind, latest, dlg.PackagePath, dlg.CertificatePath))
+                Close(); // the new version takes over (App Installer, or the restarted exe)
+        }
+        finally
+        {
+            _checkingUpdate = false;
+            mnuHelpUpdate.Enabled = true;
+        }
+    }
+
+    /// <summary>Starts installing the downloaded update. Returns true when WinCap should exit now.</summary>
+    private bool InstallUpdate(InstallKind kind, ReleaseInfo release, string packagePath, string? certificatePath)
+    {
+        try
+        {
+            if (kind == InstallKind.Portable)
+            {
+                UpdateInstaller.ApplyPortable(packagePath);
+                return true;
+            }
+
+            // MSIX: a self-signed release can only be installed once its certificate is trusted.
+            if (certificatePath != null && !UpdateInstaller.IsCertificateTrusted(certificatePath))
+            {
+                var answer = MessageBox.Show(this,
+                    $"WinCap {release.Version} is signed with a self-signed certificate that Windows does not trust yet.\n\n" +
+                    "Add it to the trusted certificates of this computer (Local Machine › Trusted People)?\n" +
+                    "Windows will ask for administrator permission.\n\n" +
+                    "Choose No to open the installer anyway (installation fails if the certificate is not trusted).",
+                    "Update WinCap", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Question);
+                if (answer == DialogResult.Cancel) return false;
+                if (answer == DialogResult.Yes && !UpdateInstaller.TrustCertificate(certificatePath))
+                {
+                    SetStatus("Update canceled: the certificate was not installed.");
+                    return false;
+                }
+            }
+            UpdateInstaller.LaunchMsix(packagePath);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            SetStatus("Update failed.");
+            MessageBox.Show(this,
+                $"The update could not be installed:\n{ex.Message}\n\nThe downloaded file is here:\n{packagePath}",
+                "Update WinCap", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            try
+            {
+                Process.Start("explorer.exe", $"/select,\"{packagePath}\"");
+            }
+            catch
+            {
+                // ignore
+            }
+            return false;
+        }
     }
 }
