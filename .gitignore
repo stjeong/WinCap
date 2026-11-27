@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+
+# Not part of the repository
+requirements.txt
+.claude.conv.*.txt
+main_ui.png

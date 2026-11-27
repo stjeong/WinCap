@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>WinCap</RootNamespace>
+    <AssemblyName>WinCap</AssemblyName>
+
+    <!-- x64 only -->
+    <Platforms>x64</Platforms>
+    <PlatformTarget>x64</PlatformTarget>
+
+    <!-- Windows Forms application bootstrap (ApplicationConfiguration.Initialize) -->
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <ApplicationDefaultFont>Segoe UI, 9pt</ApplicationDefaultFont>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+
+    <Product>WinCap</Product>
+    <AssemblyTitle>WinCap - Screen Capture</AssemblyTitle>
+    <Version>0.1.1</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Also embedded so the window / taskbar can use every size in the .ico -->
+    <EmbeddedResource Include="app.ico" LogicalName="WinCap.app.ico" />
+  </ItemGroup>
+
+</Project>
