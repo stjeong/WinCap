@@ -1,0 +1,117 @@
+name: Release
+
+# Builds WinCap and publishes a portable zip and an MSIX package.
+#   - Push a tag like v1.2.3      -> builds 1.2.3 and creates / updates the GitHub Release.
+#   - Run manually (Actions tab)  -> builds and uploads the files as workflow artifacts only.
+#
+# MSIX signing:
+#   Repository secrets MSIX_CERTIFICATE (base64 of a .pfx) and MSIX_CERTIFICATE_PASSWORD
+#   sign the package with your own certificate. Without them a self-signed certificate is
+#   generated for each build and its .cer is attached so users can trust it.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version X.Y.Z (empty: <Version> in WinCap.csproj)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Determine version
+        id: version
+        shell: pwsh
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $v = $env:GITHUB_REF_NAME -replace '^v', ''
+          } elseif ($env:INPUT_VERSION) {
+            $v = $env:INPUT_VERSION.Trim()
+          } else {
+            $v = ([xml](Get-Content src/WinCap/WinCap.csproj)).Project.PropertyGroup.Version |
+              Where-Object { $_ } | Select-Object -First 1
+          }
+          if ($v -notmatch '^\d+\.\d+\.\d+$') { throw "Version '$v' must look like 1.2.3" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: Build zip and MSIX
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          MSIX_CERTIFICATE: ${{ secrets.MSIX_CERTIFICATE }}
+          MSIX_CERTIFICATE_PASSWORD: ${{ secrets.MSIX_CERTIFICATE_PASSWORD }}
+        run: |
+          $params = @{ Version = $env:VERSION; OutputDir = 'artifacts' }
+          if ($env:MSIX_CERTIFICATE) {
+            $pfx = Join-Path $env:RUNNER_TEMP 'signing.pfx'
+            [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:MSIX_CERTIFICATE))
+            $params.CertificatePath = $pfx
+            $params.CertificatePassword = $env:MSIX_CERTIFICATE_PASSWORD
+          }
+          try { ./packaging/package.ps1 @params }
+          finally { if ($pfx) { Remove-Item $pfx -ErrorAction SilentlyContinue } }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WinCap-${{ steps.version.outputs.version }}
+          path: artifacts/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $files = Get-ChildItem artifacts -File | ForEach-Object FullName
+          $selfSigned = Test-Path "artifacts/WinCap-$env:VERSION-selfsigned.cer"
+
+          $notes = @"
+          ## Downloads
+
+          | File | Description |
+          |---|---|
+          | ``WinCap-$env:VERSION-win-x64.zip`` | Portable. Unzip and run ``WinCap.exe`` (no .NET install needed). |
+          | ``WinCap-$env:VERSION-x64.msix`` | Installer package (Windows 11, x64). |
+
+          "@
+          if ($selfSigned) {
+            $notes += "`n" + @"
+          ### Installing the MSIX
+
+          The MSIX is signed with a self-signed certificate, so Windows must trust it once:
+
+          1. Download ``WinCap-$env:VERSION-selfsigned.cer`` and open it.
+          2. **Install Certificate** > **Local Machine** > **Place all certificates in the following store** > **Trusted People**.
+          3. Open the ``.msix`` file and click **Install**.
+
+          "@
+          }
+          $notesFile = Join-Path $env:RUNNER_TEMP 'notes.md'
+          Set-Content $notesFile $notes
+
+          gh release view $env:TAG *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload $env:TAG @files --clobber
+          } else {
+            gh release create $env:TAG @files --title "WinCap $env:VERSION" --notes-file $notesFile --generate-notes
+          }
+          if ($LASTEXITCODE -ne 0) { throw "gh release failed ($LASTEXITCODE)" }

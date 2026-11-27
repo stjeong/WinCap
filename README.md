@@ -114,10 +114,44 @@ dotnet build WinCap.sln -c Release -p:Platform=x64
 
 결과물은 `src\WinCap\bin\x64\Release\net9.0-windows\WinCap.exe`입니다. 전역 단축키는 한 프로그램만 등록할 수 있으므로 WinCap은 한 번에 하나만 실행됩니다.
 
+## 배포 파일 만들기 (zip, MSIX)
+
+`packaging/package.ps1`이 배포 파일을 만듭니다. .NET을 설치하지 않은 PC에서도 실행되도록 self-contained 단일 exe로 빌드합니다.
+
+| 파일 | 설명 |
+|---|---|
+| `WinCap-<버전>-win-x64.zip` | 압축을 풀고 `WinCap.exe`를 바로 실행하는 포터블 버전 |
+| `WinCap-<버전>-x64.msix` | 설치 패키지 (Windows 11, x64) |
+| `WinCap-<버전>-selfsigned.cer` | 서명 인증서를 주지 않았을 때만 생성. MSIX를 설치하기 전에 신뢰해야 하는 자체 서명 인증서 |
+
+**로컬에서:** .NET 9 SDK와 Windows SDK(`makeappx`, `makepri`, `signtool`)가 필요합니다. 결과는 `artifacts\`에 생깁니다.
+
+```
+pwsh packaging/package.ps1 -Version 1.0.0
+pwsh packaging/package.ps1 -Version 1.0.0 -CertificatePath my.pfx -CertificatePassword ****
+```
+
+**GitHub Actions (`.github/workflows/release.yml`):**
+
+- `v1.2.3` 형식의 태그를 push하면 빌드한 뒤 GitHub Release를 만들고 파일을 첨부합니다.
+
+  ```
+  git tag v1.0.0
+  git push origin v1.0.0
+  ```
+
+- Actions 탭에서 **Release › Run workflow**로 수동 실행하면 Release는 만들지 않고, 빌드 결과를 워크플로 아티팩트로만 올립니다. 버전을 비우면 `WinCap.csproj`의 `<Version>`을 씁니다.
+- 저장소 Secrets에 `MSIX_CERTIFICATE`(PFX 파일을 base64로 인코딩한 값)와 `MSIX_CERTIFICATE_PASSWORD`를 넣으면 그 인증서로 서명합니다. 이때 MSIX의 Publisher는 인증서 subject를 따릅니다. Secrets가 없으면 빌드할 때마다 자체 서명 인증서를 새로 만들고, 릴리스 노트에 인증서 설치 방법을 넣습니다.
+
+  ```
+  [Convert]::ToBase64String([IO.File]::ReadAllBytes('my.pfx')) | Set-Clipboard
+  ```
+
 ## 알려진 제한
 
 - **Video** 탭은 UI만 있고 동영상 녹화는 아직 구현되지 않았습니다.
 - 캡처 후 편집 기능은 없으며, 외부 편집기(기본: 그림판)를 사용합니다.
+- MSIX로 설치한 경우 Settings의 **Start WinCap when Windows starts**가 동작하지 않습니다. MSIX 앱은 레지스트리 쓰기가 앱 전용 공간으로 격리되기 때문입니다. 자동 실행이 필요하면 zip 버전을 쓰세요.
 
 ## 프로젝트 구조
 
@@ -125,6 +159,8 @@ dotnet build WinCap.sln -c Release -p:Platform=x64
 WinCap.sln
 global.json                  .NET SDK 버전 고정 (9.0)
 docs/                        README용 스크린샷
+packaging/                   배포 파일 생성 스크립트(package.ps1), MSIX 매니페스트 템플릿
+.github/workflows/           release.yml: 태그 push 시 zip·MSIX 빌드와 GitHub Release
 src/WinCap/
   Program.cs                 진입점 (단일 인스턴스, PerMonitorV2, 다크 모드)
   MainForm(.Designer).cs     메인 UI와 캡처 흐름
